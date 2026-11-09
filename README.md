@@ -51,4 +51,4 @@ Projeto/
 
 - App: `organizar_cenas.py` (Python 3, só biblioteca padrão + tkinter). Rodar direto: `python3 organizar_cenas.py`.
 - Testes: `python3 testes_cenas.py`.
-- Build: `.github/workflows/build-mac.yml` gera o `.app` universal a cada push. Para publicar uma versão em Releases, crie uma tag: `git tag v1.0 && git push origin v1.0`.
+- Build: `.github/workflows/build-mac.yml` gera o `.app` universal a cada push na `main` e publica em Releases com a versão do arquivo `VERSION`. Para lançar uma versão nova, mude o número em `VERSION`.
