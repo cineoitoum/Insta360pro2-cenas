@@ -1,0 +1,65 @@
+name: Build Mac app
+
+# Gera "Organizar Cenas.app" (universal: Apple Silicon + Intel).
+# - A cada push na main: o .zip fica disponível em Actions → (execução) → Artifacts.
+# - Ao criar uma tag v* (ex.: v1.0): publica o .zip na página de Releases.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PY_VERSION: "3.12.8"
+  APP_NAME: "Organizar Cenas"
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # Python oficial do python.org: é "universal2" e traz Tk 8.6.
+      # (O Python do setup-python é só arm64 e não geraria app para Intel.)
+      - name: Instalar Python universal2 (python.org)
+        run: |
+          curl -fsSLo python.pkg "https://www.python.org/ftp/python/${PY_VERSION}/python-${PY_VERSION}-macos11.pkg"
+          sudo installer -pkg python.pkg -target /
+          PY=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+          echo "PY=$PY" >> "$GITHUB_ENV"
+          $PY -c "import sys, tkinter; print(sys.version, 'Tk', tkinter.TkVersion)"
+          lipo -archs "$PY"
+
+      - name: Testes
+        run: $PY testes_cenas.py
+
+      - name: Gerar o .app
+        run: |
+          $PY -m pip install --upgrade pip pyinstaller==6.11.1
+          $PY -m PyInstaller --noconfirm --windowed --target-arch universal2 \
+            --name "$APP_NAME" --osx-bundle-identifier br.cineoitoum.organizarcenas \
+            organizar_cenas.py
+          echo "Arquiteturas do executável:"
+          lipo -archs "dist/$APP_NAME.app/Contents/MacOS/$APP_NAME"
+
+      - name: Montar o .zip (app + LEIA-ME)
+        run: |
+          mkdir -p pacote
+          cp -R "dist/$APP_NAME.app" pacote/
+          cp README.md "pacote/LEIA-ME.md"
+          cd pacote && ditto -c -k --sequesterRsrc . "../Organizar-Cenas-mac.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Organizar-Cenas-mac
+          path: Organizar-Cenas-mac.zip
+
+      - name: Publicar na página de Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Organizar-Cenas-mac.zip
